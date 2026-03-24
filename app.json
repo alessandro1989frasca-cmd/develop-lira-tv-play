@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lira TV Play",
     "slug": "lira-tv-play",
-    "version": "1.0.0",
+    "version": "1.0.12",
     "privacyUrl": "https://www.liratv.it/privacy-policy/",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
