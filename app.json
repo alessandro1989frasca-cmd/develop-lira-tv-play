@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "it.liratv.play",
-      "versionCode": 100,
+      "versionCode": 102,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
