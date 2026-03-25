@@ -1,0 +1,86 @@
+{
+  "expo": {
+    "name": "Lira TV Play",
+    "slug": "lira-tv-play",
+    "version": "1.0.18",
+    "privacyUrl": "https://www.liratv.it/privacy-policy/",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "lira-tv-play",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "it.liratv.play",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "it.liratv.play",
+      "versionCode": 108,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://liratv.it/"
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
+      ],
+      "expo-audio",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "autolinking": {
+      "exclude": [
+        "expo-location",
+        "@teovilla/react-native-web-maps"
+      ],
+      "android": {
+        "exclude": [
+          "expo-location",
+          "@teovilla/react-native-web-maps"
+        ]
+      },
+      "ios": {
+        "exclude": [
+          "expo-location",
+          "@teovilla/react-native-web-maps"
+        ]
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b92878f0-1546-48fd-a3b8-69ae95ea42b4"
+      }
+    }
+  }
+}
