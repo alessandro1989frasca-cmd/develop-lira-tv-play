@@ -31,7 +31,7 @@
       },
       "package": "it.liratv.play",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 157,
+      "versionCode": 159,
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.POST_NOTIFICATIONS",
