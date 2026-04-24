@@ -1,0 +1,87 @@
+LIRA TV PLAY — Changelog Interno
+==================================
+Versione in produzione: v1.0.108
+Ultima build: v1.0.114 (versionCode 192)
+
+
+v1.0.109 → v1.0.114 — Tutte le novità rispetto alla v1.0.108 in produzione
+=============================================================================
+Data: aprile 2026
+versionCode: 186 → 192
+
+
+UI / PLAYER
+------------
+- Rimosso contatore visualizzazioni (badge occhio sulle card video)
+  → Rimossa chiamata fetchViewCounts da index.tsx e videos.tsx
+- Aggiunto pulsante "Chiudi" nella schermata errore del player (affiancato a "Riprova")
+- Hero home: font titolo cambiato in Oswald_700Bold
+  → fontSize 30, letterSpacing 0.5, textShadow rgba(0,0,0,0.8) per leggibilità
+- Hero home: descrizione in Oswald_400Regular, colore oro #F5C518, letterSpacing 1.5
+- Hero home: gradiente rinforzato (da 0.3 opacità al 70% → a 0.75 opacità al 45%)
+  → Altezza gradiente portata al 60% (era 40%)
+
+WIDGET PARTITA
+---------------
+- Auto-refresh punteggio ogni 60 secondi quando match_widget_enabled = true
+  → Polling via fetchFreshAppConfig() in AppConfigProvider.tsx
+  → Nessun polling quando widget spento
+- Aggiunta sezione marcatori (goal scorer)
+  → Mostra nome, minuto, suffisso (rig.) / (aut.)
+  → Layout a due colonne casa/ospite
+
+FEED RSS
+---------
+- Feed consolidati da 9 URL separati a 2 feed dedicati:
+  → https://www.liratv.it/feed/programmi-app/ (programmi ultimi 7 giorni)
+  → https://www.liratv.it/feed/articoli-app/  (articoli ultimi 7 giorni)
+  ⚠️  BACKWARD COMPAT: versioni ≤ v1.0.108 usano i vecchi feed WordPress
+- Aggiunta funzione mapArticoliCategory per mappatura tag → categoria app
+- Articoli senza videoUrl filtrati automaticamente
+- Risolto bug: video del 2025 apparivano in categorie errate (feed illimitati)
+
+ANALYTICS / SESSIONI
+---------------------
+- Fix sessioni a zero: rimosso insert duration_sec:0 da views.ts
+  → Aggiunto CHECK CONSTRAINT sessions_duration_positive (duration_sec > 0) su Supabase
+  → SQL eseguito: DELETE FROM sessions WHERE duration_sec <= 0;
+- Aggiunta colonna app_version alla tabella Supabase devices
+  → Ogni apertura del live registra la versione app dell'utente
+  → SQL: ALTER TABLE devices ADD COLUMN IF NOT EXISTS app_version TEXT;
+
+iOS / APP STORE
+----------------
+- Aggiunto CFBundleLocalizations (["it","en"]) e CFBundleDevelopmentRegion ("it")
+  → App Store Connect ora riconosce correttamente l'italiano come lingua principale
+- Fix Android 16KB page size (obbligatorio Google Play da novembre 2025)
+  → expo-image aggiornato da 2.0.7 a 3.0.11
+  → Plugin gradle: android.experimental.enable16KPageAlignment=true
+
+
+INFRASTRUTTURA BACKEND / SUPABASE
+===================================
+
+Sessions
+---------
+- Aggiunta tabella sessions_daily per storico aggregato giornaliero
+  → Struttura: day, type, session_count, total_duration_sec, UNIQUE(day, type)
+- Funzione archive_and_clear_sessions() aggrega sessioni di ieri + DELETE + pulizia 365gg
+- Cron Supabase: archive-sessions-daily alle 23:05 UTC ogni notte
+- Cron delete_old_sessions rimosso (ridondante, suggerito SELECT cron.unschedule)
+- Query analytics aggiornate: leggono da sessions (oggi) + sessions_daily (storico)
+  → Totali sempre corretti indipendentemente dalla versione app degli utenti
+
+Debug widget
+-------------
+- Aggiunta pagina /debug/match (servita dal backend porta 8000)
+  → File: match-widget-debug.html
+  → Salva URL backend in localStorage (non serve reinserirlo)
+  → Pulsante "Carica da Supabase" + "Chiama API-Football ora"
+
+
+NOTE GENERALI
+==============
+- Versione in prod: v1.0.108 (iOS e Android) — utenti non forzabili all'aggiornamento
+- EAS autoIncrement: true — il versionCode viene incrementato automaticamente da EAS
+- API_FOOTBALL_KEY: configurata in Replit Secrets (piano free, 100 richieste/giorno)
+- Backend polling API-Football: ogni 2 minuti quando widget attivo
