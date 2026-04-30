@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "it.liratv.play",
-      "buildNumber": "1.0.3",
+      "buildNumber": "1.0.5",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
