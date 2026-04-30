@@ -1,0 +1,453 @@
+LIRA TV PLAY — Changelog Interno
+==================================
+Versione in produzione: v1.0.108
+Ultima build: v1.0.128 (versionCode 196)
+
+
+v1.0.128 — Scheda Programma + resume episodi + fix New Architecture
+====================================================================
+Data: aprile 2026
+versionCode: 196
+
+BUG FIX (sessione corrente)
+---------------------------
+- app/program-category.tsx: fix critico — EpisodeRow ora riceve
+  progress={resumePositions[item.id]}. Prima resumePositions era caricato
+  ma mai passato alla riga: barra di avanzamento e badge "RIPRENDI"
+  non apparivano mai. Ora:
+  · Barra di avanzamento blu (#60A5FA) sul fondo del thumbnail (stessa
+    logica di VideoCard: soglia 2%-92% per nascondere valori irrilevanti)
+  · Badge "RIPRENDI" in blu accanto a data/durata quando pct > 2% e < 92%
+  · Badge "NUOVO" rimane se non c'è progresso e l'episodio è recente (<36h)
+- app.json: newArchEnabled: false → true. Expo Go SDK 53 usa sempre la New
+  Architecture: tenere false causava comportamento diverso tra test e
+  build EAS di produzione. Ora allineati.
+
+NUOVA FUNZIONALITÀ
+------------------
+- app/program-category.tsx: completamente ridisegnato come "Scheda Programma"
+  per i programmi della categoria 'programmi'. Stile ispirato a streaming app
+  premium, con identità visiva propria (accenti dorati #F5C518, distinta da RAI Play).
+  Componenti: hero fullscreen con thumbnail ultima puntata + LinearGradient,
+  barra dorata + label "Programma", titolo show grande, bottone "Ultima puntata"
+  con cerchio play dorato, bottoni Condividi (Share nativo) e Preferiti (toggle
+  cuore), descrizione del programma, sezione "Puntate" con lista episodi
+  numerata (thumbnail, titolo, data, durata, badge NUOVO se <36h).
+- Stack.Screen con headerShown: false — nessun header nativo, back button custom.
+- FlatList con ListHeaderComponent per performance ottimale su liste lunghe.
+- Badge "NUOVO" automatico per episodi pubblicati nelle ultime 36 ore.
+- Bottone "Condividi" usa Share nativo React Native.
+- Bottone "Preferiti" toggle locale (cuore pieno/vuoto).
+
+BACKEND
+-------
+- backend/hono.ts: nuovo endpoint GET /api/program-description?name=...
+  Recupera la descrizione del programma dall'API pubblica WordPress di liratv.it
+  (wp-json/wp/v2/categories?slug=...). Cache in-memory con TTL 24 ore per slug,
+  stripping HTML automatico. Conversione nome → slug WP (lowercase, accenti
+  rimossi, spazi → trattini). Max ~33 programmi unici → 33 call esterne
+  mai ripetute nella stessa giornata di server uptime.
+- Questa feature non richiede modifiche a Supabase.
+
+NOTE
+----
+- "Edizioni TG" e altre categorie non-programmi: comportamento invariato
+  (navigazione classica con VideoCard).
+- Descrizione: non disponibile per tutti i programmi (dipende dalle categorie WP).
+  Se vuota, la sezione viene omessa automaticamente.
+- La descrizione viene recuperata direttamente dall'API WordPress di liratv.it
+  (wp-json/wp/v2/categories) senza passare dal backend — funziona su device
+  fisico, Expo Go e web. Nessun problema CORS su native. React Query fa da
+  cache per 24 ore: massimo 1 chiamata per programma per sessione.
+
+
+v1.0.127 — Ottimizzazione sync cached_news su Supabase
+=======================================================
+Data: aprile 2026
+versionCode: 205
+
+MIGLIORAMENTO
+-------------
+- dataService.ts: sync news su Supabase avviene max 1 volta all'ora
+  con coordinazione globale (timestamp via updated_at su Supabase,
+  stesso pattern del palinsesto). Il primo dispositivo dell'ora fa il
+  sync, tutti gli altri lo saltano ("già aggiornato da un altro dispositivo").
+- Cleanup articoli vecchi: una volta al giorno, elimina articoli con
+  pub_date > 4 giorni (il feed copre ~3 giorni, 4 è il margine di sicurezza).
+  Evita crescita illimitata della tabella.
+- Nota: RLS disabilitato su cached_news in Supabase (necessario per
+  permettere all'app di scrivere con chiave anon).
+
+
+v1.0.126 — Fix failover News con WordPress in manutenzione
+===========================================================
+Data: aprile 2026
+versionCode: 204
+
+BUG FIX
+-------
+- dataService.ts: il failover Supabase non si attivava quando WordPress
+  rispondeva HTTP 200 con pagina di manutenzione (0 articoli parsati).
+  Aggiunto controllo articles.length === 0 nel percorso di successo:
+  se RSS ritorna 0 articoli, si consulta prima Supabase, poi AsyncStorage.
+  La sync a Supabase viene bloccata se articles è vuoto (evita di
+  sovrascrivere dati validi con array vuoto).
+
+
+v1.0.125 — Fix cache thumbnail VideoCard
+========================================
+Data: aprile 2026
+versionCode: 203
+
+BUG FIX
+-------
+- VideoCard.tsx: sostituito Image di React Native con expo-image con
+  cachePolicy="memory-disk". Prima i thumbnail venivano ricaricati ogni
+  volta e non sopravvivevano a riavvii o al sito in manutenzione.
+  Ora vengono salvati su disco come tutte le altre immagini dell'app.
+
+
+v1.0.124 — Supabase failover per sezione News
+=============================================
+Data: aprile 2026
+versionCode: 202
+
+NUOVA FUNZIONALITÀ
+------------------
+- dataService.ts: aggiunto failover Supabase per fetchNewsArticles().
+  Flusso: WordPress RSS → (fallback) Supabase cached_news → (fallback) AsyncStorage.
+  Dopo ogni fetch WordPress riuscita, gli articoli vengono sincronizzati
+  in background su Supabase (max 50 articoli, non bloccante).
+  Richiede tabella cached_news su Supabase (vedi SQL nel changelog).
+
+SQL TABELLA (da eseguire su Supabase SQL Editor):
+  CREATE TABLE cached_news (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    link TEXT,
+    pub_date TIMESTAMPTZ NOT NULL,
+    author TEXT,
+    category TEXT,
+    thumbnail TEXT,
+    description TEXT,
+    content TEXT,
+    video_url TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+
+v1.0.123 — Badge "TORNA AL LIVE" su pausa prolungata
+=====================================================
+Data: aprile 2026
+versionCode: 201
+
+MIGLIORAMENTO
+-------------
+- live.tsx: se la pausa manuale dura più di 5 secondi, compare in basso
+  a sinistra il badge "TORNA AL LIVE" (stesso comportamento già presente
+  al ritorno da un'altra scheda dopo > 5 sec).
+  Premendo il badge si riconnette alla testa del live tramite replaceAsync.
+  Il timer viene cancellato correttamente al dismount e al cambio scheda.
+
+
+v1.0.122 — Pulizia import inutilizzati
+=======================================
+Data: aprile 2026
+versionCode: 200
+
+CLEANUP (solo righe import — nessuna funzionalità cambiata)
+-----------------------------------------------------------
+- live.tsx: rimosso captureException (mai chiamata) e LiveIndicator (mai usato nel JSX)
+- player.tsx: rimosso captureException (mai chiamata)
+- event-live.tsx: rimosso captureException (mai chiamata)
+- index.tsx: rimosso useMemo destrutturato (usato solo come React.useMemo)
+
+
+v1.0.121 — Pulizia infrastruttura tRPC inutilizzata
+=====================================================
+Data: aprile 2026
+versionCode: 199
+
+CLEANUP (solo rimozioni — nessuna funzionalità cambiata)
+---------------------------------------------------------
+- Eliminata intera cartella backend/trpc/ (7 route mai chiamate dal client):
+    routes/analytics.ts, routes/views.ts, routes/errors.ts,
+    routes/featured.ts, routes/polls.ts, routes/programs.ts,
+    routes/schedule.ts, app-router.ts, create-context.ts
+- backend/hono.ts: rimossi import @hono/trpc-server, appRouter, createContext
+  e il blocco app.use("/api/trpc/*", ...) — il backend ora espone solo
+  gli endpoint REST effettivamente usati (heartbeat, viewers/live, health,
+  football/*, match-debug/*)
+- lib/trpc.ts: ridotto a sola funzione getBaseUrl() — rimossi createTRPCReact,
+  createTRPCClient, httpLink, superjson, AppRouter type
+- Eliminato app/+native-intent.tsx (placeholder deep link non configurato)
+Backend verificato: riavviato e operativo senza errori dopo la pulizia.
+
+
+v1.0.120 — Pulizia codice morto
+================================
+Data: aprile 2026
+versionCode: 198
+
+CLEANUP (solo rimozioni — nessuna funzionalità cambiata)
+---------------------------------------------------------
+- Eliminati 2 file interi mai usati:
+    app/modal.tsx         (template placeholder Expo)
+    lib/analytics.ts      (trackAnalyticsDirect mai importata)
+- Rimosso da utils/dataService.ts (5 funzioni esportate mai usate):
+    getNextProgram()
+    fetchViewCounts()
+    reportErrorDirect()
+    getCachedNewsArticles()
+    fetchAllActiveBreakingNews()
+- Rimossa da lib/appConfig.ts: prefetchAppConfig() (mai usata)
+- Rimossa da types/index.ts: interface LiveStatus (mai usata)
+Righe eliminate: ~350. Zero impatto funzionale.
+Non toccato (🟡 da valutare in futuro): tRPC backend, lib/trpc.ts parziale,
+app/+native-intent.tsx. Vedi ANALISI_CODICE_MORTO.md per dettagli.
+
+
+v1.0.119 — Barra progresso sulla scheda video
+==============================================
+Data: aprile 2026
+versionCode: 197
+
+UI / VOD
+--------
+- VideoCard: aggiunta barra progresso stile Netflix in fondo alla thumbnail
+  (3px, azzurra su sfondo grigio semitrasparente). Appare solo se il video
+  è stato visto tra il 2% e il 92% della durata. Non appare su video non
+  iniziati o già finiti.
+- hooks/useResumePositions.ts: nuovo hook che legge tutte le posizioni salvate
+  da AsyncStorage (video_resume_*) e restituisce una mappa videoId→percentuale.
+  Si aggiorna automaticamente ogni volta che lo schermo torna in focus.
+- player.tsx: il record di resume ora salva anche la durata del video, necessaria
+  per calcolare la percentuale. Retrocompatibile: i vecchi record senza durata
+  vengono ignorati per la barra (il resume seek continua a funzionare normalmente).
+- Barra attiva in: Home (tutte le sezioni), Schermata Video, Categoria programma.
+
+ANALYTICS / SUPABASE
+--------------------
+- dataService.ts trackVideoView(): rimosso insert con duration_sec=0 che violava
+  il vincolo Supabase "sessions_duration_positive". Il conteggio visualizzazioni
+  funziona ugualmente leggendo le sessioni reali (già tracciate da trackSessionDirect
+  con durata >= 3s). Errore "[Views] Session insert error" eliminato.
+
+
+v1.0.118 — Fix chirurgici da analisi codice
+===========================================
+Data: aprile 2026
+versionCode: 196
+
+RETE
+-----
+- useNetworkStatus: il ping ora verifica prima il nostro backend /health, poi come
+  fallback Google generate_204. Se il backend risponde, online; se fallisce anche
+  Google, offline. Più preciso per questo app (se il backend è giù, l'app non
+  funziona comunque)
+- Backend: aggiunto endpoint GET /health (risposta immediata { status: "ok" })
+
+DATI
+-----
+- dataService.ts: fix parsing category da feed RSS — gestisce ora correttamente
+  il caso in cui item.category sia un object (prima generava "[object Object]")
+- dataService.ts: aggiunte AbortSignal con timeout 12s alle 3 query Supabase
+  critiche (fetchAllFromSupabase, fetchScheduleFromSupabaseDirect,
+  fetchCachedPrograms). Se Supabase non risponde entro 12s, la query viene
+  abortita e l'app usa il fallback/cache invece di bloccarsi
+
+PLAYER (VOD)
+------------
+- player.tsx: fix memory leak nei due setTimeout anonimi del resume seek
+  (riga 218-222) — aggiunto controllo isMountedRef.current prima di ogni
+  setState/operazione player, evita setState su componente smontato
+
+BACKEND
+-------
+- footballService.ts: chiave API-Football di backup (API_FOOTBALL_KEY_2) —
+  passaggio automatico quando la principale esaurisce la quota giornaliera
+
+
+v1.0.117 — Auto-retry silenzioso su errore diretta
+===================================================
+Data: aprile 2026
+versionCode: 195
+
+PLAYER (DIRETTA)
+-----------------
+- Quando il player della diretta riceve un errore (connessione instabile, picco
+  di utenti, server momentaneamente occupato), ora invece di mostrare subito la
+  schermata errore aspetta 6 secondi e riprova automaticamente, in silenzio
+- Durante l'attesa appare un overlay "Riconnessione in corso…" con spinner e
+  link "Riprova ora" se l'utente vuole saltare l'attesa
+- Massimo 2 auto-retry consecutivi; se entrambi falliscono appare la schermata
+  errore manuale come in precedenza
+- Se il dispositivo è offline, errore immediato senza auto-retry (inutile aspettare)
+- Quando la connessione torna, il contatore si azzera (readyToPlay)
+- Implementato su live.tsx e event-live.tsx
+
+
+v1.0.116 — Log player error → warn
+=====================================
+Data: aprile 2026
+versionCode: 194
+
+DIAGNOSTICA
+------------
+- Errori di streaming del player (playerStatus === 'error') ora loggati come "warn"
+  invece di "error" in tutti e tre i player: VOD (player.tsx), diretta (live.tsx),
+  eventi live (event-live.tsx)
+- Aggiunta funzione captureWarn() in lib/errorReporter.ts
+- I veri bug continuano a essere loggati come "error"; i player error dovuti a
+  stream temporaneamente non disponibili non inquinano più la lista errori critici
+
+
+v1.0.115 — Riprendi video da dove eri rimasto
+===============================================
+Data: aprile 2026
+versionCode: 193
+
+PLAYER
+-------
+- Implementata funzione "riprendi video": salva la posizione del VOD ogni 10s
+  con AsyncStorage (chiave video_resume_<videoId>, valore {position, savedAt})
+- Al riapertura del video, se esiste una posizione salvata (>5s, <30 giorni, <92%),
+  il player fa seek automatico 400ms dopo readyToPlay
+- Appare un banner dorato "▶ Ripreso da MM:SS" per 3 secondi, poi scompare
+- La posizione salvata viene cancellata quando il video finisce naturalmente (playToEnd)
+- Non salva se il video è quasi finito (>92% visto) o nei primi 5 secondi
+- Pulizia automatica delle voci AsyncStorage più vecchie di 30 giorni all'avvio del player
+- Solo per VOD; non coinvolge la diretta
+
+
+v1.0.109 → v1.0.114 — Tutte le novità rispetto alla v1.0.108 in produzione
+=============================================================================
+Data: aprile 2026
+versionCode: 186 → 192
+
+
+UI / PLAYER
+------------
+- Rimosso contatore visualizzazioni (badge occhio sulle card video)
+  → Rimossa chiamata fetchViewCounts da index.tsx e videos.tsx
+- Aggiunto pulsante "Chiudi" nella schermata errore del player (affiancato a "Riprova")
+- Hero home: font titolo cambiato in Oswald_700Bold
+  → fontSize 30, letterSpacing 0.5, textShadow rgba(0,0,0,0.8) per leggibilità
+- Hero home: descrizione in Oswald_400Regular, colore oro #F5C518, letterSpacing 1.5
+- Hero home: gradiente rinforzato (da 0.3 opacità al 70% → a 0.75 opacità al 45%)
+  → Altezza gradiente portata al 60% (era 40%)
+
+WIDGET PARTITA
+---------------
+- Auto-refresh punteggio ogni 60 secondi quando match_widget_enabled = true
+  → Polling via fetchFreshAppConfig() in AppConfigProvider.tsx
+  → Nessun polling quando widget spento
+- Aggiunta sezione marcatori (goal scorer)
+  → Mostra nome, minuto, suffisso (rig.) / (aut.)
+  → Layout a due colonne casa/ospite
+
+FEED RSS
+---------
+- Feed consolidati da 9 URL separati a 2 feed dedicati:
+  → https://www.liratv.it/feed/programmi-app/ (programmi ultimi 7 giorni)
+  → https://www.liratv.it/feed/articoli-app/  (articoli ultimi 7 giorni)
+  ⚠️  BACKWARD COMPAT: versioni ≤ v1.0.108 usano i vecchi feed WordPress
+- Aggiunta funzione mapArticoliCategory per mappatura tag → categoria app
+- Articoli senza videoUrl filtrati automaticamente
+- Risolto bug: video del 2025 apparivano in categorie errate (feed illimitati)
+
+SPETTATORI LIVE IN TEMPO REALE
+--------------------------------
+- Heartbeat: il player live invia un ping al backend ogni 30 secondi mentre l'utente guarda
+  → Endpoint: POST /api/heartbeat (in-memory, zero Supabase)
+  → Conteggio: GET /api/viewers/live → { viewers: N, at: "timestamp" }
+  → Pagina visuale: GET /viewers (si aggiorna ogni 10s, sfondo scuro, numero in oro)
+  → API pubblica, integrabile in console di gestione esterna
+  → Il contatore si azzera al restart del backend ma si ripopola in 30s
+
+ANALYTICS / SESSIONI
+---------------------
+- Fix sessioni a zero: rimosso insert duration_sec:0 da views.ts
+  → Aggiunto CHECK CONSTRAINT sessions_duration_positive (duration_sec > 0) su Supabase
+  → SQL eseguito: DELETE FROM sessions WHERE duration_sec <= 0;
+- Aggiunta colonna app_version alla tabella Supabase devices
+  → Ogni apertura del live registra la versione app dell'utente
+  → SQL: ALTER TABLE devices ADD COLUMN IF NOT EXISTS app_version TEXT;
+
+iOS / APP STORE
+----------------
+- Aggiunto CFBundleLocalizations (["it","en"]) e CFBundleDevelopmentRegion ("it")
+  → App Store Connect ora riconosce correttamente l'italiano come lingua principale
+- Fix Android 16KB page size (obbligatorio Google Play da novembre 2025)
+  → expo-image aggiornato da 2.0.7 a 3.0.11
+  → Plugin gradle: android.experimental.enable16KPageAlignment=true
+
+
+INFRASTRUTTURA BACKEND / SUPABASE
+===================================
+
+Sessions
+---------
+- Aggiunta tabella sessions_daily per storico aggregato giornaliero
+  → Struttura: day, type, session_count, total_duration_sec, UNIQUE(day, type)
+- Funzione archive_and_clear_sessions() aggrega sessioni di ieri + DELETE + pulizia 365gg
+- Cron Supabase: archive-sessions-daily alle 23:05 UTC ogni notte
+- Cron delete_old_sessions rimosso (ridondante, suggerito SELECT cron.unschedule)
+- Query analytics aggiornate: leggono da sessions (oggi) + sessions_daily (storico)
+  → Totali sempre corretti indipendentemente dalla versione app degli utenti
+
+Debug widget
+-------------
+- Aggiunta pagina /debug/match (servita dal backend porta 8000)
+  → File: match-widget-debug.html
+  → Salva URL backend in localStorage (non serve reinserirlo)
+  → Pulsante "Carica da Supabase" + "Chiama API-Football ora"
+
+
+NOTE GENERALI
+==============
+- Versione in prod: v1.0.108 (iOS e Android) — utenti non forzabili all'aggiornamento
+- EAS autoIncrement: true — il versionCode viene incrementato automaticamente da EAS
+- API_FOOTBALL_KEY: configurata in Replit Secrets (piano free, 100 richieste/giorno)
+- Backend polling API-Football: ogni 2 minuti quando widget attivo
+
+
+TODO / PROSSIME VERSIONI
+=========================
+- [HERE MAPS] Valutare integrazione HERE Maps per funzionalità geografiche
+  (es. mappa redazioni/corrispondenti, copertura notizie per zona, ecc.)
+  API: https://developer.here.com — piano free disponibile.
+
+
+- [ARRAY PARSING RSS] utils/dataService.ts riga 168: se item.category è un object
+  (non array, non stringa), il cast [categoryRaw] potrebbe generare [object Object].
+  Fix: Array.isArray(item.category) ? item.category : item.category ? [item.category] : []
+  → RISOLTO in v1.0.118
+
+- [PING NETWORK] hooks/useNetworkStatus.ts riga 10: ping verso Google generate_204.
+  Se Google è irraggiungibile (censura, DNS, ecc.) l'app mostra "offline" anche se
+  il nostro backend è accessibile. Meglio pingare il nostro backend /health.
+  → RISOLTO in v1.0.118
+
+- [TIMEOUT SUPABASE QUERIES] utils/dataService.ts: alcune query a Supabase non hanno
+  AbortSignal con timeout. Se Supabase non risponde, il fetch rimane sospeso.
+  Fix: aggiungere AbortController con timeout 12s sulle query critiche (cached_programs,
+  cached_schedule, app_config).
+  → RISOLTO in v1.0.118
+
+- [MEMORY LEAK PLAYER] app/player.tsx: verificare che tutti i ref (controlsTimeoutRef,
+  countdownRef, loadingTimerRef, stallCheckRef, ecc.) vengano puliti nel cleanup di
+  ogni useEffect. Rischio: timeout che continuano dopo unmount rapido del componente.
+  Audit eseguito: tutti i ref principali già puliti correttamente. Unico punto reale:
+  due setTimeout anonimi annidati per il resume seek (riga 218-222) senza controllo
+  isMountedRef — aggiunto controllo prima di qualsiasi setState/player op.
+  → RISOLTO in v1.0.118
+
+- [NOTIFICHE PALINSESTO] Potenziale notifica duplicata con iscrizione "ogni volta":
+  L'effetto auto-scheduling ricorrente in live.tsx (riga 478) non include `singleNotifs`
+  tra le dipendenze (eslint-disable riga 504). In casi rari (remount + React Query
+  che aggiorna il palinsesto prima che AsyncStorage carichi le preferenze) potrebbe
+  schedulare una seconda notifica per lo stesso programma senza cancellare la prima.
+  In pratica quasi impossibile con React 18 (automatic batching), ma è un punto fragile.
+  Fix: aggiungere `singleNotifs` alle dipendenze dell'effetto e usare una ref per
+  evitare il loop infinito (es. scheduledRef che traccia gli ID già processati).

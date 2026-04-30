@@ -1,0 +1,41 @@
+LIRA TV PLAY — Changelog Store
+================================
+(Testo da usare su App Store e Google Play al prossimo rilascio)
+
+
+IT — Italiano
+--------------
+Novità in questa versione:
+
+• Riprendi da dove eri rimasto: se esci da un video a metà, la
+  prossima volta ripartirà esattamente dal punto in cui ti eri
+  fermato. Perfetto per i programmi lunghi come TG e rubriche.
+• Risultati in tempo reale: il punteggio della partita si aggiorna
+  automaticamente mentre usi l'app, senza doverla riavviare.
+• Nuovo look homepage: titolo e descrizione in evidenza con font
+  rinnovato e contrasto migliorato.
+• Contenuti più precisi: i video e le notizie vengono ora recuperati
+  da feed dedicati, eliminando errori di categoria e contenuti
+  non pertinenti.
+• Pulsante Chiudi nell'errore di riproduzione: in caso di problema
+  con un video è ora possibile chiudere la schermata senza riavviare
+  l'app.
+• Miglioramenti generali e correzioni di bug.
+
+
+EN — English
+-------------
+What's new in this version:
+
+• Resume where you left off: if you close a video halfway through,
+  next time it will start right from where you stopped. Great for
+  longer programmes like news and talk shows.
+• Live score updates: the match score refreshes automatically while
+  you use the app — no need to restart.
+• Refreshed home screen: title and description stand out with a
+  new font and improved contrast.
+• More accurate content: videos and news are now fetched from
+  dedicated feeds, fixing category errors and irrelevant results.
+• Close button on playback error: if a video fails to load, you
+  can now dismiss the screen without restarting the app.
+• General improvements and bug fixes.
